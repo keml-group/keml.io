@@ -27,30 +27,47 @@ public class IOProvider {
 
 	private void runIOProvider() {
 		folder = "";
-		new Thread(new FileBrowseDialog(this)).start();
-		synchronized (this) {
-			try {
-				while (folder.isEmpty()) {
-					this.wait();
+		FileBrowseDialog fb = new FileBrowseDialog(this);
+		new Thread(fb).start();
+		boolean foundFolder = false;
+		File resultsFolder = null;
+		String conversationFolder = "";
+		File files[] = null;
+		while (!foundFolder) {
+			synchronized (this) {
+				try {
+					while (folder.isEmpty()) {
+						this.wait();
+					}
+				} catch (InterruptedException e) {
+					e.printStackTrace();
 				}
-			} catch (InterruptedException e) {
-				e.printStackTrace();
+			}
+			resultsFolder = new File(folder + "/keml/");
+			System.out.println("You started the graphml to keml conversion.\n I will read graphml files from " + folder
+					+ ".\n I will write the resulting files into " + resultsFolder);
+
+			String conversations = folder + "/conversations.json";
+			conversationFolder = folder + "/conv/";
+			try {
+				new ChatGPTReader().split(conversations, conversationFolder);
+				files = new File(folder + "/graphml/")
+						.listFiles((dir, name) -> name.toLowerCase().endsWith(".graphml"));
+				if (files == null) {
+					throw new NullPointerException();
+				}
+				foundFolder = true;
+				fb.dispose();
+			} catch (IOException e) {
+				System.err.println("Cannot split " + conversations + "\nChoose another folder");
+				folder = "";
+				fb.setVisible(true);
+			} catch (NullPointerException e) {
+				System.err.println("No .graphml files found in given folder " + folder + " \nChoose another folder");
+				folder = "";
+				fb.setVisible(true);
 			}
 		}
-		File resultsFolder = new File(folder + "/keml/");
-		System.out.println("You started the graphml to keml conversion.\n I will read graphml files from " + folder
-				+ ".\n I will write the resulting files into " + resultsFolder);
-
-		String conversations = folder + "/conversations.json";
-		String conversationFolder = folder + "/conv/";
-		try {
-			new ChatGPTReader().split(conversations, conversationFolder);
-		} catch (IOException e) {
-			System.err.println("Cannot split " + conversations);
-			System.err.println(e);
-		}
-
-		File[] files = new File(folder + "/graphml/").listFiles((dir, name) -> name.toLowerCase().endsWith(".graphml"));
 
 		KemlFileHandler fileHandler = new KemlFileHandler();
 
@@ -61,16 +78,6 @@ public class IOProvider {
 				e.printStackTrace();
 			}
 		}
-	}
-
-	/**
-	 * @param args
-	 * @throws IOException
-	 */
-	public static void main(String[] args) {
-		String defaultPath = "../keml.sample/introductoryExamples";
-		IOProvider ioProvider = new IOProvider(defaultPath);
-		ioProvider.runIOProvider();
 	}
 
 	private static void transformFile(File graphmlPath, KemlFileHandler fileHandler, File targetFolder,
@@ -88,6 +95,15 @@ public class IOProvider {
 
 	private static File getConvFileFromFile(File file, String conversationFolder) {
 		return new File(conversationFolder + FilenameUtils.getBaseName(file.getPath()) + ".json");
+	}
+
+	/**
+	 * @param args
+	 */
+	public static void main(String[] args) {
+		String defaultPath = "../keml.sample/introductoryExamples";
+		IOProvider ioProvider = new IOProvider(defaultPath);
+		ioProvider.runIOProvider();
 	}
 
 }
