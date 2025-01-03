@@ -15,17 +15,23 @@ import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
 import javax.swing.JTextField;
 
 public class FileBrowseDialog extends JFrame implements ActionListener, Runnable {
 
+	JPanel p1;
+	JPanel p2;
+	JPanel p3;
 	JButton folderSelecterButton;
 	JButton folderOpenerButton;
 	JTextField textField;
+	JLabel message;
 
 	IOProvider ioProvider;
 
-	String last = "utils/paths/last_used_paths.txt";
+	String lastPathSave = "utils/paths/last_used_paths.txt";
 
 	FileBrowseDialog(IOProvider ioProvider) {
 		this.ioProvider = ioProvider;
@@ -34,36 +40,50 @@ public class FileBrowseDialog extends JFrame implements ActionListener, Runnable
 	private void buildFrame() {
 		this.setTitle("Choose conversation files");
 		this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		this.setLayout(new FlowLayout());
+		this.setSize(400, 200);
+		this.setLayout(new FlowLayout(FlowLayout.CENTER, 10, 10));
 		ImageIcon logo = new ImageIcon("utils/logos/camel.png");
 		this.setIconImage(logo.getImage());
 		this.setLocationRelativeTo(null);
+		this.setAlwaysOnTop(true);
 
-		folderSelecterButton = new JButton("Select folder");
-		folderSelecterButton.addActionListener(this);
-		this.add(folderSelecterButton);
-
-		folderOpenerButton = new JButton("Open folder >>");
-		folderOpenerButton.addActionListener(this);
-		this.add(folderOpenerButton);
+		p1 = new JPanel();
+		p1.setPreferredSize(new Dimension(390, 35));
+		this.add(p1);
 
 		textField = new JTextField();
 		textField.setPreferredSize(new Dimension(300, 25));
 		try {
-			new File(last).createNewFile();
+			new File(lastPathSave).createNewFile();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 		String lastPath = readLastPath();
 		textField.setText(lastPath == null ? ioProvider.defaultFolder : lastPath);
-		this.add(textField);
+		p1.add(textField);
 
-		this.pack();
+		p2 = new JPanel(new FlowLayout(FlowLayout.CENTER, 50, 0));
+		p2.setPreferredSize(new Dimension(390, 30));
+		this.add(p2);
+
+		folderSelecterButton = new JButton("Select folder");
+		folderSelecterButton.addActionListener(this);
+		p2.add(folderSelecterButton);
+
+		folderOpenerButton = new JButton("Open folder >>");
+		folderOpenerButton.addActionListener(this);
+		p2.add(folderOpenerButton);
+
+		p3 = new JPanel(new FlowLayout());
+		message = new JLabel();
+		p3.add(message);
+
+		this.add(p3);
 	}
 
 	private String readLastPath() {
 		String lastUsedPath = null;
-		try (BufferedReader br = new BufferedReader(new FileReader(last))) {
+		try (BufferedReader br = new BufferedReader(new FileReader(lastPathSave))) {
 			lastUsedPath = br.readLine();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
@@ -73,7 +93,7 @@ public class FileBrowseDialog extends JFrame implements ActionListener, Runnable
 	}
 
 	private void writeLastPath(String lastPath) {
-		try (BufferedWriter bw = new BufferedWriter(new FileWriter(last))) {
+		try (BufferedWriter bw = new BufferedWriter(new FileWriter(lastPathSave))) {
 			bw.write(lastPath);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -85,7 +105,7 @@ public class FileBrowseDialog extends JFrame implements ActionListener, Runnable
 		if (e.getSource() == folderSelecterButton) {
 			JFileChooser fileChooser = new JFileChooser();
 			fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-			fileChooser.setCurrentDirectory(new File("."));
+			fileChooser.setCurrentDirectory(new File(readLastPath()));
 			int r = fileChooser.showDialog(this, "Select");
 			if (r == JFileChooser.APPROVE_OPTION) {
 				File file = new File(fileChooser.getSelectedFile().getAbsolutePath());

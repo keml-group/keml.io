@@ -59,11 +59,13 @@ public class IOProvider {
 				foundFolder = true;
 				fb.dispose();
 			} catch (IOException e) {
-				System.err.println("Cannot split " + conversations + "\nChoose another folder");
+				fb.message.setText(
+						"<html><body>Cannot split<br>" + conversations + "<br>Choose another folder</body></html>");
 				folder = "";
 				fb.setVisible(true);
 			} catch (NullPointerException e) {
-				System.err.println("No .graphml files found in given folder " + folder + " \nChoose another folder");
+				fb.message.setText("<html><body>No .graphml files found in given folder<br>" + folder
+						+ "<br>Choose another folder</body></html>");
 				folder = "";
 				fb.setVisible(true);
 			}
