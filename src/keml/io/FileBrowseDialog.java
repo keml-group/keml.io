@@ -32,6 +32,7 @@ public class FileBrowseDialog extends JFrame implements ActionListener, Runnable
 	IOProvider ioProvider;
 
 	String lastPathSave = "utils/paths/last_used_paths.txt";
+	String lastPath;
 
 	FileBrowseDialog(IOProvider ioProvider) {
 		this.ioProvider = ioProvider;
@@ -58,8 +59,9 @@ public class FileBrowseDialog extends JFrame implements ActionListener, Runnable
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		String lastPath = readLastPath();
-		textField.setText(lastPath == null ? ioProvider.defaultFolder : lastPath);
+		String lp;
+		lastPath = (lp = readLastPath()) == null ? ioProvider.defaultFolder : lp;
+		textField.setText(lastPath);
 		p1.add(textField);
 
 		p2 = new JPanel(new FlowLayout(FlowLayout.CENTER, 50, 0));
@@ -105,7 +107,7 @@ public class FileBrowseDialog extends JFrame implements ActionListener, Runnable
 		if (e.getSource() == folderSelecterButton) {
 			JFileChooser fileChooser = new JFileChooser();
 			fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-			fileChooser.setCurrentDirectory(new File(readLastPath()));
+			fileChooser.setCurrentDirectory(new File(textField.getText()));
 			int r = fileChooser.showDialog(this, "Select");
 			if (r == JFileChooser.APPROVE_OPTION) {
 				File file = new File(fileChooser.getSelectedFile().getAbsolutePath());
