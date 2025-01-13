@@ -19,7 +19,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 
-public class FileBrowseDialog extends JFrame implements ActionListener, Runnable {
+public class FileBrowseDialog extends JFrame implements ActionListener {
 
 	JPanel p1;
 	JPanel p2;
@@ -36,6 +36,8 @@ public class FileBrowseDialog extends JFrame implements ActionListener, Runnable
 
 	FileBrowseDialog(IOProvider ioProvider) {
 		this.ioProvider = ioProvider;
+		this.buildFrame();
+		this.setVisible(true);
 	}
 
 	private void buildFrame() {
@@ -105,29 +107,29 @@ public class FileBrowseDialog extends JFrame implements ActionListener, Runnable
 	@Override
 	public void actionPerformed(ActionEvent e) {
 		if (e.getSource() == folderSelecterButton) {
-			JFileChooser fileChooser = new JFileChooser();
-			fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-			fileChooser.setCurrentDirectory(new File(textField.getText()));
-			int r = fileChooser.showDialog(this, "Select");
-			if (r == JFileChooser.APPROVE_OPTION) {
-				File file = new File(fileChooser.getSelectedFile().getAbsolutePath());
-				textField.setText(file.toString());
-			}
+			openFileChooser();
 		} else if (e.getSource() == folderOpenerButton) {
-			String path = textField.getText();
-			synchronized (this.ioProvider) {
-				this.ioProvider.folder = path;
-				writeLastPath(path);
-				this.ioProvider.notify();
-			}
-			this.setVisible(false);
+			openFolder();
 		}
 	}
 
-	@Override
-	public void run() {
-		this.buildFrame();
-		this.setVisible(true);
+	private void openFileChooser() {
+		JFileChooser fileChooser = new JFileChooser();
+		fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+		fileChooser.setCurrentDirectory(new File(textField.getText()));
+		int r = fileChooser.showDialog(this, "Select");
+		if (r == JFileChooser.APPROVE_OPTION) {
+			File file = new File(fileChooser.getSelectedFile().getAbsolutePath());
+			textField.setText(file.toString());
+		}
+	}
+
+	private void openFolder() {
+		String path = textField.getText();
+		this.ioProvider.folder = path;
+		writeLastPath(path);
+		this.setVisible(false);
+		ioProvider.tryChosenPath();
 	}
 
 }
