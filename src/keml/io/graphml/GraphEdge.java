@@ -13,6 +13,7 @@ public class GraphEdge {
 	private String target;
 	private String label;
 	private InformationLinkType informationLinkType; //only used on InformationLink edges
+	private String informationLinkTypeString; //new
 
 	public GraphEdge(String id, String sourceNodeId, String targetNodeId, String label, InformationLinkType informationLinkType) {
 		super();
@@ -21,6 +22,7 @@ public class GraphEdge {
 		this.target = targetNodeId;
 		this.label = label;
 		this.informationLinkType = informationLinkType;
+		this.informationLinkTypeString = informationLinkTypeString; //new
 	}
 		
 	// parse from e.g.  <edge id="e94" source="n104" target="n105">
@@ -30,7 +32,8 @@ public class GraphEdge {
 		this.source = e.getAttributes().getNamedItem("source").getNodeValue();
 		this.target = e.getAttributes().getNamedItem("target").getNodeValue();
 		this.label = GraphMLUtils.readLabel(e, "y:EdgeLabel");
-		this.informationLinkType = determineInformationLinkType(e);		
+		this.informationLinkType = determineInformationLinkType(e);
+		this.informationLinkTypeString = arrowHead(e); //new
 	}
 	
 	private static InformationLinkType determineInformationLinkType(Element e) {
@@ -62,7 +65,7 @@ public class GraphEdge {
 		return style.getNamedItem("type").getNodeValue().equals("dashed");
 	}
 	
-	private static String arrowHead(Element e) {	
+	public static String arrowHead(Element e) {
 		NamedNodeMap style = e.getElementsByTagName("y:Arrows").item(0).getAttributes();
 		return style.getNamedItem("target").getNodeValue();
 	}
@@ -93,6 +96,9 @@ public class GraphEdge {
 	}
 	public InformationLinkType getInformationLinkType() {
 		return informationLinkType;
+	}
+	public String getInformationLinkTypeString() { //new
+		return informationLinkTypeString;
 	}
 	@Override
 	public String toString() {
