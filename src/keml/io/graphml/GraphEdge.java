@@ -35,6 +35,7 @@ public class GraphEdge {
 	
 	private static InformationLinkType determineInformationLinkType(Element e) {
 		String targetShape = arrowHead(e);
+		
 		switch (targetShape) {
 			case "white_circle": case "transparent_circle": case "circle": return InformationLinkType.SUPPLEMENT;
 			case "crows_foot_many": {
@@ -44,11 +45,19 @@ public class GraphEdge {
 					return InformationLinkType.STRONG_SUPPORT; 
 			}
 			case "cross": {
-				if (isDashed(e))
+				 if (isDashed(e))
 					return InformationLinkType.ATTACK;
 				else
 					return InformationLinkType.STRONG_ATTACK;
 			}
+			case "concave": { // --->|
+				if (arrowTail(e).equals("dash")) // -|----
+					return InformationLinkType.SNEGATED_IMPLICATION; // S for source (i.e., source is being negated)
+				else 
+					return InformationLinkType.IMPLICATION; // nothing is being negated
+			}
+			case "dash": // ----|-
+				return InformationLinkType.TNEGATED_IMPLICATION; // T for target (i.e., target is being negated)
 			case "standard": case "none": return null;
 			default: {
 				System.err.println(targetShape);
@@ -65,6 +74,16 @@ public class GraphEdge {
 	private static String arrowHead(Element e) {	
 		NamedNodeMap style = e.getElementsByTagName("y:Arrows").item(0).getAttributes();
 		return style.getNamedItem("target").getNodeValue();
+	}
+	
+	/**
+	 * Method to fetch the type of arrow used on the edge's tail
+	 * @param e Edge element
+	 * @return type of arrow tail as String
+	 */
+	private static String arrowTail(Element e) {	
+		NamedNodeMap style = e.getElementsByTagName("y:Arrows").item(0).getAttributes();
+		return style.getNamedItem("source").getNodeValue();
 	}
 	
 	public String getId() {

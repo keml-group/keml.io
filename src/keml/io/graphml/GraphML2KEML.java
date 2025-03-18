@@ -25,12 +25,16 @@ import keml.Conversation;
 import keml.ConversationPartner;
 import keml.Information;
 import keml.InformationLink;
+import keml.InformationLinkType;
 import keml.KemlFactory;
+import keml.Literal;
 import keml.Message;
 import keml.NewInformation;
 import keml.PreKnowledge;
 import keml.ReceiveMessage;
 import keml.SendMessage;
+import keml.Junction;
+
 
 
 import org.w3c.dom.*;
@@ -75,6 +79,8 @@ public class GraphML2KEML {
 		HashMap<String, PositionalInformation> informationIsInstructionPositions = new HashMap<String, PositionalInformation>();
 		HashMap<String, PositionalInformation> informationIsNoInstructionPositions = new HashMap<String, PositionalInformation>();
 		
+		HashMap<String, Junction> junctionNodes = new HashMap<String,Junction>(); // for disjunction/conjunction coupling nodes
+
 		HashMap<String, String> ignoreNodes = new HashMap<String, String>();
 		
 		
@@ -135,6 +141,13 @@ public class GraphML2KEML {
 									// also store positions to find corresponding ! or person
 									informationPositions.put(id, pos);
 									author.getPreknowledge().add(pre);
+									
+									Literal l = factory.createLiteral();
+									Literal negatedL = factory.createLiteral();
+									l.setSource(pre);
+									negatedL.setSource(pre);
+									negatedL.setNegated(true);
+
 								}
 								// else it might be an interrupt:
 								else if (childNode.getAttributes().item(0).getNodeValue().equals("com.yworks.bpmn.Gateway.withShadow")) {
@@ -156,7 +169,15 @@ public class GraphML2KEML {
 										info.setMessage(label);
 										kemlNodes.put(id, info);
 										// also store positions to find corresponding ! or person
-										informationPositions.put(id, pos);								
+										informationPositions.put(id, pos);	
+										
+										Literal l = factory.createLiteral();
+										Literal negatedL = factory.createLiteral();
+										l.setSource(info);
+										negatedL.setSource(info);
+										negatedL.setNegated(true);
+										
+										
 										break;
 									}
 									case "#99CC00": { //green, used on facts (!)
@@ -177,6 +198,21 @@ public class GraphML2KEML {
 										potentialMessageXs.put(id, pos);
 										break;
 									}
+									case "#FF99CC": { // pink, used for disjunction/conjunction coupling
+										nodeTypes.put(id, NodeType.JUNCTION);
+										Junction jun = factory.createJunction();
+										String label = GraphMLUtils.readLabel(childNode);
+										
+										if (label.toLowerCase().equals("and"))
+											jun.setDisjunction(false);
+										else if (label.toLowerCase().equals("or"))
+											jun.setDisjunction(true);
+										else 
+											throw new IllegalArgumentException("Unrecognized/unsupported type for Junction Node " + id);
+										
+										junctionNodes.put(id, jun);
+										break;
+									}
 									default: {
 										throw new IllegalArgumentException("Unrecognized color: "+color);
 									}
@@ -194,7 +230,7 @@ public class GraphML2KEML {
 		
 		// nodeForwardList: HashMap<String, String> lookup for which real information node is used (we have 2 nodes form message + icon)
 		Map<String, String> informationNodeForwardMap = createNodeForwardList(informationPositions, informationIsInstructionPositions, informationIsNoInstructionPositions, kemlNodes);
-			
+		
 		// ************* edges ****************************
 		NodeList edgeList = doc.getElementsByTagName("edge");
 		List<GraphEdge> edges = IntStream.range(0, edgeList.getLength())
@@ -205,16 +241,30 @@ public class GraphML2KEML {
 		// now work on edges to separate them: we need those of the sequence diagram to arrange the messages and can already define all relations between information in a second method
 		List<GraphEdge> sequenceDiagramEdges = new ArrayList<GraphEdge>();
 		List<GraphEdge> informationConnection = new ArrayList<GraphEdge>();
+		List<GraphEdge> implicationConnection = new ArrayList<GraphEdge>();
 		List<GraphEdge> usedBy = new ArrayList<GraphEdge>();
 		List<GraphEdge> generates = new ArrayList<GraphEdge>();
 		edges.forEach(e -> 
 		{
+			
+
+			
 			NodeType src = nodeTypes.get(e.getSource());
 			if (src == null)
 				System.err.println("No type for source node " + e.getSource());
 			NodeType targetType = nodeTypes.get(e.getTarget());
 			if (targetType == null)
 				System.err.println("No type for target node " + e.getTarget());
+			
+			// detect LAF related links
+			if (e.getInformationLinkType() == InformationLinkType.IMPLICATION 
+					|| e.getInformationLinkType() == InformationLinkType.TNEGATED_IMPLICATION
+					|| e.getInformationLinkType() == InformationLinkType.SNEGATED_IMPLICATION) {
+				implicationConnection.add(e);
+				return; //skip to next edge 
+			}
+
+			
 			switch (src) {
 				case MESSAGE: {
 					switch(targetType) {
@@ -246,7 +296,7 @@ public class GraphML2KEML {
 							usedBy.add(e);
 							break;
 						}
-						case NEW_INFORMATION: case PRE_KNOWLEDGE: {
+						case NEW_INFORMATION: case PRE_KNOWLEDGE: case JUNCTION:  {
 							informationConnection.add(e);
 							break;
 						}
@@ -262,7 +312,7 @@ public class GraphML2KEML {
 							usedBy.add(e);
 							break;
 						}
-						case NEW_INFORMATION: {
+						case NEW_INFORMATION: case JUNCTION: {
 							informationConnection.add(e);
 							break;
 						}
@@ -270,6 +320,16 @@ public class GraphML2KEML {
 							throw new IllegalArgumentException("Node "+ e.getTarget() + " of type " + targetType + " not valid on edge from "+src);
 					}
 					break;
+				}
+				case JUNCTION: {
+					switch (targetType) {
+						case NEW_INFORMATION: case PRE_KNOWLEDGE: {
+							informationConnection.add(e);
+							break;
+						}
+						default:
+							throw new IllegalArgumentException("Node "+ e.getTarget() + " of type " + targetType + " not valid on edge from "+src);
+					}
 				}
 			}
 		});
@@ -279,7 +339,6 @@ public class GraphML2KEML {
 				kemlNodes, potentialMessageXs, sequenceDiagramEdges, interrupts);
 		
 		// TODO we could use them to save preKnowledge in order
-		
 		// ***************** Connecting information and sequence diagram ********
 		addGeneratesAndRepeats(generates, informationNodeForwardMap, kemlNodes);
 		
@@ -288,6 +347,91 @@ public class GraphML2KEML {
 			SendMessage msg = (SendMessage) kemlNodes.get(e.getTarget());
 			info.getIsUsedOn().add(msg);
 		});
+
+		
+		// ***************** Logic Connections **********************
+		implicationConnection.forEach(e -> {
+			/* TODO/NOTE
+			 *  we do not "store" the link itself (like information connections)
+			 *  because we don't have a way yet to properly make InformationLink objects
+			 *  accept Junction objects as their source or target
+			*/
+			
+			// implication from junction to junction
+			if (junctionNodes.containsKey(e.getSource()) && junctionNodes.containsKey(e.getTarget())) {
+				if (e.getInformationLinkType() == InformationLinkType.TNEGATED_IMPLICATION)
+					throw new IllegalArgumentException("implication on negated target used between the 2 junctions " + e.getSource() + " and " + e.getTarget());
+				
+				Junction source = junctionNodes.get(e.getSource());
+				Junction target = junctionNodes.get(e.getTarget());
+				if (source.isDisjunction() == target.isDisjunction()) // if both same type then just merge content into target
+					target.getContent().addAll(source.getContent());
+				else
+					target.getContent().add(source);
+				
+			// implication from junction to info
+			} else if (junctionNodes.containsKey(e.getSource())) { 
+				Junction source = junctionNodes.get(e.getSource());
+				Information target = getInformationFromKeml(e.getTarget(), informationNodeForwardMap, kemlNodes);
+				Literal targetLiteral;
+				
+				if (e.getInformationLinkType() == InformationLinkType.TNEGATED_IMPLICATION) {
+					targetLiteral = target.getAsLiterals().getLast();	
+				} else 
+					targetLiteral = target.getAsLiterals().getFirst();
+				
+				targetLiteral.getPremises().add(source);
+
+			// implication from info to junction
+			} else if (junctionNodes.containsKey(e.getTarget())) { 
+				if (e.getInformationLinkType() == InformationLinkType.TNEGATED_IMPLICATION)
+					throw new IllegalArgumentException("implication with negation used from info " + e.getSource() + " to junction " + e.getTarget());
+				
+				
+				Information source = getInformationFromKeml(e.getSource(), informationNodeForwardMap, kemlNodes);
+				Junction target = junctionNodes.get(e.getTarget());
+				Literal sourceLiteral;
+				if (e.getInformationLinkType() == InformationLinkType.SNEGATED_IMPLICATION)
+					sourceLiteral = source.getAsLiterals().getLast();
+				else
+					sourceLiteral = source.getAsLiterals().getFirst();
+				
+				target.getContent().add(sourceLiteral);
+				sourceLiteral.getUsedInJunctions().add(target);
+
+				
+				
+			} else  { // direct implication between two infos
+				Information source = getInformationFromKeml(e.getSource(), informationNodeForwardMap, kemlNodes);
+				Information target = getInformationFromKeml(e.getTarget(), informationNodeForwardMap, kemlNodes);
+				
+				// Current analysis component doesn't handle direct cycles, therefore through exception if detected
+				for (GraphEdge ge : implicationConnection) {
+					if (ge.getSource().equals(e.getTarget()) && ge.getTarget().equals(e.getSource())
+							&& ge.getInformationLinkType().equals(e.getInformationLinkType()))
+						throw new IllegalArgumentException("cyclical " + e.getInformationLinkType() + " link between " + e.getSource() + " and " + e.getTarget());
+				}
+				
+				Literal sourceLiteral;
+				Literal targetLiteral;
+				
+				if (e.getInformationLinkType() == InformationLinkType.SNEGATED_IMPLICATION)
+					sourceLiteral = source.getAsLiterals().getLast();
+				else
+					sourceLiteral = source.getAsLiterals().getFirst();
+				
+				if (e.getInformationLinkType() == InformationLinkType.TNEGATED_IMPLICATION) {
+					targetLiteral = target.getAsLiterals().getLast();
+				} else 
+					targetLiteral = target.getAsLiterals().getFirst();
+				
+				targetLiteral.getPremises().add((Literal) sourceLiteral);
+				
+			}
+
+			
+		});
+		
 		
 		// ***************** Information Connections **********************
 		informationConnection.forEach(e -> {
@@ -298,6 +442,8 @@ public class GraphML2KEML {
 			i.setTarget(target);
 			i.setType(e.getInformationLinkType());
 			source.getCauses().add(i);
+
+			
 		});
 		
 		System.out.println("Read "+ nodeList.getLength() + " nodes and " + edgeList.getLength() + " edges into a conversation with "
@@ -469,8 +615,11 @@ public class GraphML2KEML {
 			boolean matched = findMatchForInformation(str, pos, informationIsInstructionPositions, true, forwardList, kemlNodes);
 			if (!matched) {
 				boolean nowMatched = findMatchForInformation(str, pos, informationIsNoInstructionPositions, false, forwardList, kemlNodes);
-				if (!nowMatched)
+				if (!nowMatched) {
+					System.out.println(str);
 					throw new IllegalArgumentException("No match for information node "+str + " with: "+kemlNodes.get(str).toString());
+					
+				}
 			}	
 		});
 		return forwardList;
