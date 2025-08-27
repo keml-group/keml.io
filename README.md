@@ -29,6 +29,11 @@ However, further files are still processed.
 - GraphML edges are directed. Although the edge might "look right" because you added the arrow to the source of the edge (because you drew it the wrong direction), the parser uses the edge direction and will throw an error. The direction even counts on edges on which you have no arrow tip.
 - An information message box and its icon indicating fact vs instruction need to be aligned almost perfectly.
 
+### Recursive Edges
+- Due of yEd and graphML restrictions, recursive edges can be created by splitting the attacked edge with an orange (hexCode: ffcc99) node. The first part of the splitted edge should not have an arrow head. The recursive edge points to this special node.
+- The new version of keml.io created based on the graphML workaround KEML edges where the recursive edge points to the edge and not the node.
+- Previously created graphML files are compatible with the new version of keml.io!
+
 ## Split a ChatGPT Conversation File
 This method expects to find a file `conv.json` in the given base folder. This file must convey to the JSON schema OpenAI uses to export all conversations.
 It is a JSON Array holding JSONs for each conversation.

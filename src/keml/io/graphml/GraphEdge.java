@@ -13,16 +13,16 @@ public class GraphEdge {
 	private String target;
 	private String label;
 	private InformationLinkType informationLinkType; //only used on InformationLink edges
-	private String informationLinkTypeString; //new
+	private String informationLinkArrowHeadStyleString; //NEW: shows the arrow head style of the GraphEdge (used in keml.io to connect edges)
 
-	public GraphEdge(String id, String sourceNodeId, String targetNodeId, String label, InformationLinkType informationLinkType) {
+	public GraphEdge(String id, String sourceNodeId, String targetNodeId, String label, InformationLinkType informationLinkType, String informationLinkArrowHeadStyleString) {
 		super();
 		this.id = id;
 		this.source = sourceNodeId;
 		this.target = targetNodeId;
 		this.label = label;
 		this.informationLinkType = informationLinkType;
-		this.informationLinkTypeString = informationLinkTypeString; //new
+		this.informationLinkArrowHeadStyleString = informationLinkArrowHeadStyleString; //NEW
 	}
 		
 	// parse from e.g.  <edge id="e94" source="n104" target="n105">
@@ -33,7 +33,7 @@ public class GraphEdge {
 		this.target = e.getAttributes().getNamedItem("target").getNodeValue();
 		this.label = GraphMLUtils.readLabel(e, "y:EdgeLabel");
 		this.informationLinkType = determineInformationLinkType(e);
-		this.informationLinkTypeString = arrowHead(e); //new
+		this.informationLinkArrowHeadStyleString = arrowHead(e); //NEW: assign arrow head to variable
 	}
 	
 	private static InformationLinkType determineInformationLinkType(Element e) {
@@ -97,8 +97,8 @@ public class GraphEdge {
 	public InformationLinkType getInformationLinkType() {
 		return informationLinkType;
 	}
-	public String getInformationLinkTypeString() { //new
-		return informationLinkTypeString;
+	public String getInformationLinkArrowHeadStyleString() { //NEW: getter of informationLinkArrowHeadStyleString
+		return informationLinkArrowHeadStyleString;
 	}
 	@Override
 	public String toString() {
